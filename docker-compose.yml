@@ -1,0 +1,51 @@
+name: room-reserve
+
+services:
+  php:
+    build: ./docker/php
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    # PHP beépített webszervere, fejlesztéshez bőven elég
+    command: php -S 0.0.0.0:8000 -t public
+    ports:
+      - "8000:8000"
+    environment:
+      # A valódi környezeti változó felülírja a backend/.env-ben lévőt
+      DATABASE_URL: "mysql://app:app@db:3306/app?serverVersion=8.4&charset=utf8mb4"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: app
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app
+    ports:
+      - "3306:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  frontend:
+    image: node:24
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    environment:
+      npm_config_cache: /tmp/.npm
+    command: npm run dev -- --host 0.0.0.0
+    ports:
+      - "5173:5173"
+
+volumes:
+  db-data:
